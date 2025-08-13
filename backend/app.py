@@ -1,9 +1,9 @@
 import os
 import uuid
-import jwt
 import sqlite3
 import datetime
 import time
+import jwt
 from functools import wraps
 from flask import Flask, request, jsonify, g, render_template_string
 from flask_cors import CORS
@@ -11,13 +11,15 @@ from flask_mail import Mail, Message
 from werkzeug.security import generate_password_hash, check_password_hash
 from dotenv import load_dotenv
 from github_integration import GitHubIntegration, IssueProposal
+from github_integration_app import GitHubIntegrationApp
+from github_integration_simple import GitHubIntegrationSimple
 
 # Load environment variables
 load_dotenv()
 
 # Debug: Check if environment variables are loaded
 print("Environment variables check:")
-print(f"GITHUB_TOKEN: {'Set' if os.environ.get('GITHUB_TOKEN') else 'Not set'}")
+print(f"GITHUB_APP_ID: {'Set' if os.environ.get('GITHUB_APP_ID') else 'Not set'}")
 print(f"SECRET_KEY: {'Set' if os.environ.get('SECRET_KEY') else 'Not set'}")
 
 # Initialize app
@@ -1084,7 +1086,22 @@ def get_issue_proposals():
     """Get issue proposals from GitHub analysis"""
     add_log('info', 'GitHub proposals requested', endpoint='/api/github/proposals')
     try:
-        github_integration = GitHubIntegration(os.environ.get('GITHUB_TOKEN', ''))
+        # Use GitHub App integration
+        app_id = os.environ.get('GITHUB_APP_ID')
+        private_key_path = os.environ.get('GITHUB_APP_PRIVATE_KEY_PATH')
+        client_id = os.environ.get('GITHUB_APP_CLIENT_ID')
+        client_secret = os.environ.get('GITHUB_APP_CLIENT_SECRET')
+        
+        if all([app_id, private_key_path]):
+            add_log('info', 'Using GitHub App for GitHub operations', endpoint='/api/github/proposals')
+            github_integration = GitHubIntegrationSimple()
+        else:
+            add_log('error', 'GitHub App not properly configured', endpoint='/api/github/proposals')
+            return jsonify({
+                'success': False,
+                'error': 'GitHub App not configured. Please set GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY_PATH.'
+            }), 500
+        
         proposals = github_integration.analyze_repository()
         
         # Convert proposals to dict format
@@ -1123,16 +1140,21 @@ def approve_issue_proposal(proposal_id):
     add_log('info', f'GitHub issue approval requested for proposal: {proposal_id}', endpoint=f'/api/github/proposals/{proposal_id}/approve')
     
     try:
-        # Try Atim's bot token first, fallback to user token
-        atim_token = os.environ.get('ATIM_GITHUB_TOKEN', '')
-        user_token = os.environ.get('GITHUB_TOKEN', '')
+        # Use GitHub App integration
+        app_id = os.environ.get('GITHUB_APP_ID')
+        private_key_path = os.environ.get('GITHUB_APP_PRIVATE_KEY_PATH')
+        client_id = os.environ.get('GITHUB_APP_CLIENT_ID')
+        client_secret = os.environ.get('GITHUB_APP_CLIENT_SECRET')
         
-        if atim_token:
-            add_log('info', 'Using Atim bot token for GitHub operations', endpoint=f'/api/github/proposals/{proposal_id}/approve')
-            github_integration = GitHubIntegration()  # Will use ATIM_GITHUB_TOKEN
+        if all([app_id, private_key_path]):
+            add_log('info', 'Using GitHub App for GitHub operations', endpoint=f'/api/github/proposals/{proposal_id}/approve')
+            github_integration = GitHubIntegrationSimple()
         else:
-            add_log('info', f'Using user token for GitHub operations: {"Set" if user_token else "Not set"}', endpoint=f'/api/github/proposals/{proposal_id}/approve')
-            github_integration = GitHubIntegration(user_token)
+            add_log('error', 'GitHub App not properly configured', endpoint=f'/api/github/proposals/{proposal_id}/approve')
+            return jsonify({
+                'success': False,
+                'error': 'GitHub App not configured. Please set GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY_PATH.'
+            }), 500
         
         proposals = github_integration.analyze_repository()
         
@@ -1192,7 +1214,18 @@ def approve_issue_proposal(proposal_id):
 def reject_issue_proposal(proposal_id):
     """Reject an issue proposal"""
     try:
-        github_integration = GitHubIntegration(os.environ.get('GITHUB_TOKEN', ''))
+        # Use GitHub App integration
+        app_id = os.environ.get('GITHUB_APP_ID')
+        private_key_path = os.environ.get('GITHUB_APP_PRIVATE_KEY_PATH')
+        
+        if all([app_id, private_key_path]):
+            github_integration = GitHubIntegrationSimple()
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'GitHub App not configured. Please set GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY_PATH.'
+            }), 500
+        
         proposals = github_integration.analyze_repository()
         
         # Find the proposal
@@ -1232,7 +1265,18 @@ def reject_issue_proposal(proposal_id):
 def get_github_stats():
     """Get GitHub repository statistics"""
     try:
-        github_integration = GitHubIntegration(os.environ.get('GITHUB_TOKEN', ''))
+        # Use GitHub App integration
+        app_id = os.environ.get('GITHUB_APP_ID')
+        private_key_path = os.environ.get('GITHUB_APP_PRIVATE_KEY_PATH')
+        
+        if all([app_id, private_key_path]):
+            github_integration = GitHubIntegrationSimple()
+        else:
+            return jsonify({
+                'success': False,
+                'error': 'GitHub App not configured. Please set GITHUB_APP_ID and GITHUB_APP_PRIVATE_KEY_PATH.'
+            }), 500
+        
         stats = github_integration.get_repository_stats()
         
         return jsonify({
