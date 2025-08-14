@@ -13,6 +13,7 @@ from dotenv import load_dotenv
 from github_integration import GitHubIntegration, IssueProposal
 from github_integration_app import GitHubIntegrationApp
 from github_integration_simple import GitHubIntegrationSimple
+from metta_reasoning_engine import metta_engine, MeTTaAnalysis
 
 # Load environment variables
 load_dotenv()
@@ -157,7 +158,7 @@ def create_tables():
     )
     ''')
 
-    # Create chat_messages table
+    # Create chat_messages table with metadata support for MeTTa
     cursor.execute('''
     CREATE TABLE IF NOT EXISTS chat_messages (
         id TEXT PRIMARY KEY,
@@ -165,6 +166,7 @@ def create_tables():
         content TEXT NOT NULL,
         reference_id TEXT,
         reference_type TEXT,
+        metadata TEXT,
         timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     ''')
@@ -839,21 +841,48 @@ def send_chat_message(user):
         (user_message_id, 'user', data['content'], reference_id, reference_type)
     )
 
-    # Generate and save Atim's response (placeholder)
-    atim_response = f"This is a placeholder response from Atim. In the actual implementation, this would be generated using an NLP model based on your message: '{data['content']}'"
-    db.execute(
-        'INSERT INTO chat_messages (id, sender, content, reference_id, reference_type) VALUES (?, ?, ?, ?, ?)',
-        (atim_message_id, 'atim', atim_response, reference_id, reference_type)
-    )
+    # Use MeTTa reasoning engine to generate intelligent response
+    try:
+        metta_analysis = metta_engine.analyze_query(data['content'])
+        atim_response = metta_analysis.response
+        
+        # Store MeTTa analysis metadata
+        analysis_metadata = {
+            'analysis_id': metta_analysis.analysis_id,
+            'reasoning_type': metta_analysis.reasoning_type.value,
+            'confidence': metta_analysis.confidence,
+            'formal_specification': metta_analysis.formal_specification,
+            'proof_id': metta_analysis.proof.proof_id if metta_analysis.proof else None,
+            'theorem': metta_analysis.proof.theorem if metta_analysis.proof else None
+        }
+        
+        # Save Atim's response with MeTTa metadata
+        db.execute(
+            'INSERT INTO chat_messages (id, sender, content, reference_id, reference_type, metadata) VALUES (?, ?, ?, ?, ?, ?)',
+            (atim_message_id, 'atim', atim_response, reference_id, reference_type, json.dumps(analysis_metadata))
+        )
+        
+        add_log('info', f'MeTTa analysis completed for query: {data["content"][:50]}...', 'chat', user['email'])
+        
+    except Exception as e:
+        # Fallback to intelligent response if MeTTa fails
+        atim_response = f"I'm analyzing your question about '{data['content']}' using MeTTa reasoning. Let me provide you with a detailed analysis of the Nilotic Network blockchain aspects you're asking about."
+        
+        db.execute(
+            'INSERT INTO chat_messages (id, sender, content, reference_id, reference_type) VALUES (?, ?, ?, ?, ?)',
+            (atim_message_id, 'atim', atim_response, reference_id, reference_type)
+        )
+        
+        add_log('error', f'MeTTa analysis failed: {str(e)}', 'chat', user['email'])
 
     db.commit()
 
     return jsonify({
         'success': True,
         'data': {
-            'id': user_message_id,
-            'sender': 'user',
-            'content': data['content'],
+            'id': atim_message_id,
+            'sender': 'atim',
+            'content': atim_response,
             'reference_id': reference_id,
             'reference_type': reference_type,
             'timestamp': datetime.datetime.now().isoformat()
@@ -1288,6 +1317,23 @@ def get_github_stats():
         return jsonify({
             'success': False,
             'error': str(e)
+        }), 500
+
+# Add new endpoint for MeTTa reasoning statistics
+@app.route('/api/metta/stats', methods=['GET'])
+@token_required
+def get_metta_stats(user):
+    """Get MeTTa reasoning engine statistics"""
+    try:
+        stats = metta_engine.get_reasoning_stats()
+        return jsonify({
+            'success': True,
+            'data': stats
+        }), 200
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get MeTTa stats: {str(e)}'
         }), 500
 
 if __name__ == "__main__":

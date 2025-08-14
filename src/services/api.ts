@@ -206,7 +206,7 @@ export const sendChatMessage = async (
   referenceType?: "issue" | "pr"
 ): Promise<ApiResponse<ChatMessage>> => {
   try {
-    const response = await api.post<ApiResponse<ChatMessage>>("/demo/chat", {
+    const response = await api.post<ApiResponse<ChatMessage>>("/chat", {
       content,
       referenceId,
       referenceType,
@@ -216,6 +216,20 @@ export const sendChatMessage = async (
     return {
       success: false,
       error: error instanceof Error ? error.message : "Failed to send message",
+    };
+  }
+};
+
+// Add MeTTa statistics endpoint
+export const getMettaStats = async (): Promise<ApiResponse<any>> => {
+  try {
+    const response = await api.get<ApiResponse<any>>("/metta/stats");
+    return response.data;
+  } catch (error) {
+    return {
+      success: false,
+      error:
+        error instanceof Error ? error.message : "Failed to get MeTTa stats",
     };
   }
 };

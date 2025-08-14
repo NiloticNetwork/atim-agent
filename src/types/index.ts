@@ -47,8 +47,8 @@ export interface Issue {
   id: string;
   title: string;
   description: string;
-  severity: 'low' | 'medium' | 'high';
-  status: 'open' | 'fixed' | 'rejected';
+  severity: "low" | "medium" | "high";
+  status: "open" | "fixed" | "rejected";
   file_path: string;
   line_number: number;
   created_at: string;
@@ -61,7 +61,7 @@ export interface PullRequest {
   github_id: number;
   title: string;
   description: string;
-  status: 'open' | 'merged' | 'closed';
+  status: "open" | "merged" | "closed";
   created_at: string;
   updated_at: string;
   diff?: string;
@@ -77,21 +77,51 @@ export interface Feedback {
   created_at: string;
 }
 
+export interface MeTTaProof {
+  proof_id: string;
+  theorem: string;
+  premises: string[];
+  conclusion: string;
+  proof_steps: string[];
+  confidence: number;
+  reasoning_type: string;
+  timestamp: string;
+}
+
+export interface MeTTaAnalysis {
+  analysis_id: string;
+  query: string;
+  reasoning_type: string;
+  formal_specification: string;
+  proof?: MeTTaProof;
+  response: string;
+  confidence: number;
+  metadata: Record<string, any>;
+}
+
 export interface ChatMessage {
   id: string;
-  sender: 'user' | 'atim';
+  sender: "user" | "atim";
   content: string;
   timestamp: string;
   reference_id?: string; // ID of the issue or PR this message refers to
-  reference_type?: 'issue' | 'pr';
+  reference_type?: "issue" | "pr";
+  metadata?: {
+    analysis_id?: string;
+    reasoning_type?: string;
+    confidence?: number;
+    formal_specification?: string;
+    proof_id?: string;
+    theorem?: string;
+  };
 }
 
 export interface KanbanItem {
   id: string;
   title: string;
   description: string;
-  status: 'todo' | 'in-progress' | 'done';
-  type: 'issue' | 'pr';
+  status: "todo" | "in-progress" | "done";
+  type: "issue" | "pr";
   url: string;
   number: number;
   created_at: string;
